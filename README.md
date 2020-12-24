@@ -1,4 +1,4 @@
-# auto-ip-blocker
+# Auto IP Blocker
 Auto IP Blocker is an bash script to easily banning all IP addresses in a list, using iptables. The tool aim to help prevent attacks and junk network traffic by prevently banning IP addresses known to be suspicious/malicious.
 
 In order to do so, Auto IP Blocker allow downloading of remote IP list as a simple txt file, as well as mixing with static txt files in conf, and whitelisting.
@@ -20,25 +20,25 @@ If you are looking for a daily currated list of malicious IPs, we highly recomme
 
 ## Installation
 > :warning: Auto IP Blocker must be run by root, and use bash `source` instruction to load configuration + inject datas extracted from config files into bash commands
-> therefore, you must be extra carefull about access rights and content of config files, without what an attacker could use thoses files to gain root access on system.
+therefore, you must be extra carefull about access rights and content of config files, without what an attacker could use thoses files to gain root access on system.
 
 Auto IP Blocker only require `iptables`, `bash` and `curl`. To install it (run as root) :
-```
-    #Download and unzip
-    wget https://github.com/OsaAjani/auto-ip-blocker/archive/main.zip -O /tmp/auto-ip-blocker.zip
-    unzip /tmp/auto-ip-blocker.zip /tmp/
+```bash
+#Download and unzip
+wget https://github.com/OsaAjani/auto-ip-blocker/archive/main.zip -O /tmp/auto-ip-blocker.zip
+unzip /tmp/auto-ip-blocker.zip /tmp/
 
-    #Copy conf files
-    mv /tmp/auto-ip-blocker-main/etc /etc
+#Copy conf files
+mv /tmp/auto-ip-blocker-main/etc /etc
 
-    #Copy binary
-    mv /tmp/auto-ip-blocker-main/usr/bin/auto-ip-blocker /usr/bin/auto-ip-blocker
+#Copy binary
+mv /tmp/auto-ip-blocker-main/usr/bin/auto-ip-blocker /usr/bin/auto-ip-blocker
 
-    #Set access rights to ensure only root can modify config and binary
-    chown root:root /usr/bin/auto-ip-blocker
-    chmod 744 /usr/bin/auto-ip-blocker
-    chown -R root:root /etc/auto-ip-blocker
-    chmod -R 744 /etc/auto-ip-blocker
+#Set access rights to ensure only root can modify config and binary
+chown root:root /usr/bin/auto-ip-blocker
+chmod 744 /usr/bin/auto-ip-blocker
+chown -R root:root /etc/auto-ip-blocker
+chmod -R 744 /etc/auto-ip-blocker
 ```
 
 ## Usage
