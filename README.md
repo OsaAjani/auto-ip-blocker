@@ -26,10 +26,10 @@ Auto IP Blocker only require `iptables`, `bash` and `curl`. To install it (run a
 ```bash
 #Download and unzip
 wget https://github.com/OsaAjani/auto-ip-blocker/archive/main.zip -O /tmp/auto-ip-blocker.zip
-unzip /tmp/auto-ip-blocker.zip /tmp/
+unzip /tmp/auto-ip-blocker.zip -d /tmp/
 
 #Copy conf files
-mv /tmp/auto-ip-blocker-main/etc /etc
+mv /tmp/auto-ip-blocker-main/etc/auto-ip-blocker /etc/auto-ip-blocker
 
 #Copy binary
 mv /tmp/auto-ip-blocker-main/usr/bin/auto-ip-blocker /usr/bin/auto-ip-blocker
@@ -39,6 +39,9 @@ chown root:root /usr/bin/auto-ip-blocker
 chmod 744 /usr/bin/auto-ip-blocker
 chown -R root:root /etc/auto-ip-blocker
 chmod -R 744 /etc/auto-ip-blocker
+
+#Remove useless /tmp files
+rm -r /tmp/auto-ip-blocker.zip /tmp/auto-ip-blocker-main/
 ```
 
 ## Usage
