@@ -1,0 +1,277 @@
+#!/bin/bash
+
+######################################################################
+# LICENSE :
+# This file is part of Auto IP Blocker
+# (c) Pierre-Lin Bonnemaison <plebwebsas@gmail.com>
+#
+# This source file is subject to the GPL-3.0 license that is bundled
+# with this source code in the file LICENSE.txt
+#
+# https://github.com/OsaAjani/auto-ip-blocker
+#####################################################################
+
+FILE=`basename "$0"`
+
+### FUNCTIONS ###
+
+# Helper
+help() {
+    exit_code=$1
+
+    printf "Usage : $FILE --conf /path/to/conf/file\n"
+    exit $exit_code
+}
+
+
+# Verify if user is root
+check_if_root() {
+    if [ "$EUID" -ne 0 ]
+    then
+        printf "You must be root to run script.\n"
+        exit 1
+    fi
+}
+
+
+
+# Download remote_list file
+download_remote_list() {
+    if [ -z $REMOTE_LIST_SOURCE ]
+    then
+        printf "Ignore downloading of remote list because REMOTE_LIST_SOURCE is not set.\n"
+        return 0
+    fi
+
+    printf "Download remote list of IP addresses from $REMOTE_LIST_SOURCE...\n"
+    if
+        #Make sure to make the downloaded file root and give no rights but reading
+        touch "$IPS_DIR/generated.conf"
+        chown root:root "$IPS_DIR/generated.conf"
+        chmod 544 "$IPS_DIR/generated.conf"
+
+        curl -s "$REMOTE_LIST_SOURCE" --output "$IPS_DIR/generated.conf"
+    then
+        printf "Done.\n"
+        return 0
+    else
+        printf "Failed.\n"
+        return 1
+    fi
+}
+
+
+# Check if an address is whitelisted
+check_if_whitelisted() {
+    address=$1
+
+    for filename in "$WHITELIST_DIR"/*.conf
+    do  
+        if [ ! -e "$filename" ]
+        then
+            continue
+        fi
+
+        #If address in file, exit without error
+        if 
+            grep -v '#' $filename | grep -Fxq "$address"
+        then
+            return 0
+        fi
+    done
+
+    #If address not whitelisted, exit with error
+    return 1
+}
+
+
+#Init iptables chain
+init_iptables_chain() {
+    printf "\n\nInit iptables chain $IPTABLES_CHAIN...\n"
+
+    if 
+        iptables -nL $IPTABLES_CHAIN > /dev/null 2>&1
+    then
+        printf "Chain $IPTABLES_CHAIN exists.\n"
+        printf "  Flush chain...\n"
+        if
+            ! iptables --flush "$IPTABLES_CHAIN"
+        then
+            printf "  Failed.\n"
+            return 1
+        fi
+        
+        printf "  Drop chain...\n"
+        if
+            ! iptables --delete-chain "$IPTABLES_CHAIN"
+        then
+            printf "  Failed.\n"
+            return 2
+        fi
+    fi
+   
+    printf "  Create chain $IPTABLES_CHAIN...\n"
+    if
+        ! iptables -N "$IPTABLES_CHAIN"
+    then
+        printf "  Failed.\n"
+        return 3
+    fi
+
+    printf "Done.\n"
+    return 0
+}
+
+# Block an IP address
+block_address () {
+    address=$1
+
+    #Drop traffic incoming from the ip
+    if
+        iptables -A "$IPTABLES_CHAIN" -s "$address" -j DROP > /dev/null 2>&1
+    then
+        printf "    + block IP address $address incoming traffic.\n"
+    else
+        printf "    + failed to block IP address $address incoming traffic.\n"
+        printf "      for more info check command iptables -A "$IPTABLES_CHAIN" -d "$address" -j DROP\n"
+        return 1
+    fi
+    
+    #Drop traffic outgoing traffic to the ip if enabled
+    if $DROP_OUTGOING_TRAFFIC
+    then
+        if
+            iptables -A "$IPTABLES_CHAIN" -d "$address" -j DROP > /dev/null 2>&1
+        then
+            printf "    + block IP address $address outgoing traffic...\n"
+        else
+            printf "    + failed to block IP address $address outgoing traffic...\n"
+            printf "      for more info check command iptables -A "$IPTABLES_CHAIN" -d "$address" -j DROP\n"
+            return 2
+        fi
+    fi
+
+    return 0
+}
+
+
+#Read all IP addresses and process them
+process_addresses() {
+    printf "\n\nStart processing of addresses...\n"
+
+    for filename in "$IPS_DIR"/*.conf
+    do
+        if [ ! -e "$filename" ]
+        then
+            continue
+        fi
+        
+        printf "Process file $filename...\n"
+        
+        #Read each line of file and process ip address
+        while read -r line
+        do
+            #Ignore empty lines
+            if
+               test -z "$line"
+            then
+                continue
+            fi
+
+            #Ignore commented lines
+            if
+                echo $line | grep -q '#'
+            then
+                continue
+            fi
+
+
+            #Extract address and level
+            address=$(echo $line | cut -d' ' -f1)
+            level=$(echo $line | cut -d' ' -f2)
+
+
+            #Ignore address with level less than MINIMUM_THREAT_LEVEL
+            if
+                test $level -lt $MINIMUM_THREAT_LEVEL
+            then
+                printf "    - Ignore $address because threat level $level < $MINIMUM_THREAT_LEVEL\n"
+                continue
+            fi
+
+
+            #Ignore whitelisted addresses
+            if
+                check_if_whitelisted $address
+            then
+                printf "    - Ignore $address because it is whitelisted\n"
+                continue
+            fi
+
+            
+            #Block address
+            block_address $address
+
+        done < $filename
+    done
+
+    printf "Done.\n"
+}
+
+
+### MAIN ###
+check_if_root
+
+# Read params
+POSITIONAL=()
+while [ $# -gt 0 ]
+do
+    key="$1"
+
+    case $key in
+        --conf)
+        CONF="$2"
+        shift # past argument
+        shift # past value
+        ;;
+        *)    # unknown option
+        POSITIONAL+=("$1") # save it in an array for later
+        shift # past argument
+        ;;
+    esac
+done
+
+
+# Read conf file
+if [ -z "$CONF" ]
+then
+    printf "You must specify a --conf param.\n"
+    help 1
+fi
+
+if [[ ! -f "$CONF" && -r "$CONF" ]]
+then
+    printf "Conf file $CONF is not a readable file.\n"
+    exit 2
+fi
+
+#Load conf
+source "$CONF"
+
+
+#If main list source, download it
+if
+    ! download_remote_list
+then
+    exit 3
+fi
+
+#Init iptables chain
+if 
+    ! init_iptables_chain
+then
+    exit 4
+fi
+
+#Process all address to block them
+process_addresses
